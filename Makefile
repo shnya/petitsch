@@ -20,14 +20,13 @@ clean:
 	$(RM) $(PROGRAM) $(OBJS)
 
 install: $(PROGRAM)
+	[ ! -e $(DESTDIR)/bin ] && mkdir -p $(DESTDIR)/bin; \
 	cp $(PROGRAM) $(DESTDIR)/bin/$(PROGRAM)
 
 uninstall:
 	$(RM) $(DESTDIR)/bin/$(PROGRAM)
 
 upload:
-	cd ../  && \
-	tar zcf $(PROGRAM).tar.gz petitscheme && \
-	scp $(PROGRAM).tar.gz shnya@shnya.jp:www/public/ && \
-	rm $(PROGRAM).tar.gz && \
-	cd petitscheme
+	tar zcvf ../$(PROGRAM).tar.gz -C ../ $(PROGRAM) 
+	scp ../$(PROGRAM).tar.gz shnya@shnya.jp:www/public/
+	rm ../$(PROGRAM).tar.gz
