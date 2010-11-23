@@ -47,7 +47,7 @@ namespace PetitScheme {
       cell(const cell &);
       cell &operator=(const cell &);
       ~cell() {
-        if(isstring()) delete object_.str_.str_;
+        if(isstring()) delete[] object_.str_.str_;
       }
       cell* init(CELL_TYPE type, int arg)
       { flag_ = type; object_.ivalue_ = arg; return this; }
