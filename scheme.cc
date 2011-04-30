@@ -258,7 +258,7 @@ namespace PetitScheme {
           printf("NIL: %p, T: %p, F: %p\n", cell::NIL(),cell::T(),cell::F());
           printf("heap_begin: %p, heap_end: %p\n", heap_begin, heap_end);
 #endif /* DEBUG */
-          while(stack_end > stack_ptr){
+          while(stack_ptr < stack_end){
             if(heap_begin <= *stack_ptr && *stack_ptr < heap_end){
 #ifdef DEBUG
               printf("found stack %p <= %p < %p \n",
