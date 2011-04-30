@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <string>
 #include <stdexcept>
+#include <setjmp.h>
 
 namespace PetitScheme {
   namespace Base {
@@ -63,6 +64,8 @@ namespace PetitScheme {
         object_.cons_.cdr_ = arg2;
         return this;
       }
+      cell* init()
+      { flag_ = T_UNKNOWN; return this; }
       cell* init(cell *arg)
       { flag_ = T_UNKNOWN; object_.cell_ = arg; return this; }
       cell* init(cell* (*arg)(cell *, cell *))
@@ -78,7 +81,7 @@ namespace PetitScheme {
       bool ispair(){ return flag_ & T_PAIR; }
       bool isclosure(){ return flag_ & T_CLOSURE; }
       bool iscontinueation(){ return flag_ & T_CONTINUATION; }
-      bool ismark(){return flag_ & T_MARK; }
+      bool ismarked(){return flag_ & T_MARK; }
       void setmark(){ flag_ |= T_MARK; }
       void clrmark(){ flag_ &= (T_MARK - 1); }
 
@@ -109,23 +112,19 @@ namespace PetitScheme {
         if(ispair()) object_.cons_.cdr_ = cell__;
       }
       cell *next_freecell(){
-        if(!isunused()) return NULL;
         return object_.cell_;
       }
 
       static cell* NIL(){
-        static cell *NIL_ = NULL;
-        if(NIL_ == NULL) NIL_ = new cell();
+        static cell *NIL_ = new cell();
         return NIL_;
       }
       static cell* T(){
-        static cell *T_ = NULL;
-        if(T_ == NULL) T_ = new cell();
+        static cell *T_ = new cell();
         return T_;
       }
       static cell* F(){
-        static cell *F_ = NULL;
-        if(F_ == NULL) F_ = new cell();
+        static cell *F_ = new cell();
         return F_;
       }
 
@@ -137,44 +136,115 @@ namespace PetitScheme {
     };
 
     class cell_manager {
-      cell **cells_;
-      cell *free_cell;
-      size_t capacity_;
-      size_t size_;
+      struct cell_block {
+        int size_;
+        cell **cells_;
+        cell *free_cell_;
 
-      cell_manager() : capacity_(1), size_(0) {
-        cells_ = new cell*[1];
-        free_cell = cells_[0] = new cell();
-        cells_[0]->init(cell::NIL());
-      }
-
-
-      void resize(size_t n){
-        if(n <= capacity_)
-          return;
-
-        size_t newsize = capacity_ * 2;
-        while(newsize < n){
-          newsize *= 2;
+        cell_block(int size = 512) : size_(size) {
+          if(size == 0) return;
+          cells_ = new cell*[size_];
+          for(int i = 0; i < size_; i++)
+            cells_[i] = new cell();
+          connect_freecell();
         }
 
-        cell **new_ptr = new cell*[newsize];
-        for(size_t i = 0; i < capacity_; i++)
-          new_ptr[i] = cells_[i];
-        for(size_t i = newsize - 1; i >= capacity_; i--){
-          new_ptr[i] = new cell();
-          new_ptr[i]->init(free_cell);
-          free_cell = new_ptr[i];
+        void connect_freecell(){
+          free_cell_ = cell::NIL();
+          for(int i = size_ - 1; i >= 0; i--){
+            if(cells_[i]->isunused()){
+              cells_[i]->init(free_cell_);
+              free_cell_ = cells_[i];
+            }
+          }
         }
-        delete[] cells_;
-        cells_ = new_ptr;
-        capacity_ = newsize;
+
+        void sweep(){
+          for(int i = 0; i < size_; i++){
+            if(cells_[i]->ismarked()){
+              cells_[i]->clrmark();
+            }else{
+              cells_[i]->init();
+            }
+          }
+          connect_freecell();
+        }
+
+        void mark_cell(cell *bemarked){
+          bemarked->setmark();
+          if(bemarked->ispair()){
+            mark_cell(bemarked->car());
+            mark_cell(bemarked->cdr());
+          }
+        }
+
+        void mark_register(cell *registers, int n){
+          cell **stack_ptr = reinterpret_cast<cell**>(registers);
+          cell *heap_begin = reinterpret_cast<cell*>(cells_);
+          cell *heap_end = heap_begin + size_;
+          for(int i = 0; i < n; i++){
+            if(heap_begin <= *stack_ptr && heap_end > *stack_ptr){
+              mark_cell(*stack_ptr);
+            }
+            stack_ptr++;
+          }
+        }
+
+        void mark_stack(cell *stack_top, cell *stack_end){
+          if(stack_top > stack_end){
+            cell *tmp = stack_top;
+            stack_top = stack_end;
+            stack_end = tmp;
+          }
+          cell **stack_ptr = reinterpret_cast<cell**>(stack_top);
+          cell *heap_begin = reinterpret_cast<cell*>(cells_);
+          cell *heap_end = heap_begin + size_;
+          cell **stack_end_addr = reinterpret_cast<cell**>(stack_end);
+          while(stack_end_addr > stack_ptr){
+            if(heap_begin <= *stack_ptr && heap_end > *stack_ptr){
+              mark_cell(*stack_ptr);
+            }
+            stack_ptr++;
+          }
+        }
+
+        cell *get_cell(){
+          cell *ret = free_cell_;
+          free_cell_ = free_cell_->next_freecell();
+          return ret;
+        }
+
+        ~cell_block(){
+          for(int i = 0; i < size_; i++)
+            delete cells_[i];
+          delete[] cells_;
+        }
+      };
+
+      cell_block** blocks_;
+      int block_siz_;
+      cell *stack_top_;
+      cell *stack_end_;
+
+      cell_manager() : block_siz_(1) {
+        blocks_ = new cell_block*[1];
+        blocks_[0] = new cell_block();
       }
 
       ~cell_manager(){
-        for(size_t i = 0; i < capacity_; i++)
-          delete cells_[i];
-        delete[] cells_;
+        for(int i = 0; i < block_siz_; i++)
+          delete blocks_[i];
+        delete[] blocks_;
+      }
+
+      void append_block(){
+        cell_block **new_blocks = new cell_block*[block_siz_+1];
+        for(int i = 0; i < block_siz_; i++)
+          new_blocks[i] = blocks_[i];
+        new_blocks[block_siz_+1] = new cell_block();
+        delete[] blocks_;
+        blocks_ = new_blocks;
+        block_siz_++;
       }
 
     public:
@@ -186,14 +256,41 @@ namespace PetitScheme {
         return *instance;
       }
 
+      void set_stack_top(cell **stack_top){
+        stack_top_ = *stack_top;
+      }
+
       cell *get_cell(){
-        size_++;
-        if(free_cell == cell::NIL())
-          resize(size_);
-        cell *ret = free_cell;
-        free_cell = free_cell->next_freecell();
-        if(free_cell == NULL) throw std::logic_error("Can't allocate memory!");
+        for(int i = 0; i < block_siz_; i++){
+          cell *ret = blocks_[i]->get_cell();
+          if(ret != cell::NIL()) return ret;
+        }
+        gc();
+        for(int i = 0; i < block_siz_; i++){
+          cell *ret = blocks_[i]->get_cell();
+          if(ret != cell::NIL()) return ret;
+        }
+        append_block();
+        cell *ret = blocks_[block_siz_-1]->get_cell();
+        if(ret == cell::NIL()) throw std::logic_error("Can't allocate memory");
         return ret;
+      }
+
+      void gc(){
+        jmp_buf registers;
+        setjmp(registers);
+        cell end;
+        stack_end_ = &end;
+
+        for(int i = 0; i < block_siz_; i++){
+          blocks_[i]->mark_register((cell*)registers,
+                                    sizeof(registers) / sizeof(cell *));
+          blocks_[i]->mark_stack(stack_top_, stack_end_);
+        }
+        // sweep
+        for(int i = 0; i < block_siz_; i++){
+          blocks_[i]->sweep();
+        }
       }
     };
 
@@ -511,7 +608,7 @@ namespace PetitScheme {
         std::string current, line;
         current.clear();
         int paren = 0;
-        *os << "sh>> ";
+        *os << "petitsch>> ";
         while(std::getline(*is, line)){
           paren += std::count(line.begin(), line.end(), '(');
           paren -= std::count(line.begin(), line.end(), ')');
@@ -665,7 +762,6 @@ namespace PetitScheme {
     }
 
     class VM {
-      obj genv;
       enum OP_CODE {
         OP_HALT = 1,
         OP_REFER = 2,
@@ -682,24 +778,24 @@ namespace PetitScheme {
         OP_DEFINE = 13
       };
 
-      void define(obj var, obj val){
-        genv = cons(cons(list(var), list(val)), genv);
+      void define(obj var, obj val, obj *genv){
+        *genv = cons(cons(list(var), list(val)), *genv);
       }
 
-      void define(const char *sym, obj val){
-        define(mk_symbol(sym), val);
+      void define(const char *sym, obj val, obj *genv){
+        define(mk_symbol(sym), val, genv);
       }
 
-      void define(const char *sym, int num){
-        define(mk_symbol(sym), mk_number(num));
+      void define(const char *sym, int num, obj *genv){
+        define(mk_symbol(sym), mk_number(num), genv);
       }
 
-      void define(const char *sym, const char *str){
-        define(mk_symbol(sym), mk_string(str));
+      void define(const char *sym, const char *str,obj* genv){
+        define(mk_symbol(sym), mk_string(str), genv);
       }
 
-      void define(const char *sym, cell::funcp func){
-        define(mk_symbol(sym), mk_proc(func));
+      void define(const char *sym, cell::funcp func, obj* genv){
+        define(mk_symbol(sym), mk_proc(func), genv);
       }
 
       obj extend(obj env, obj vars, obj vals){
@@ -729,11 +825,11 @@ namespace PetitScheme {
         return cell::NIL();
       }
 
-      obj lookup(obj var, obj env){
+      obj lookup(obj var, obj env, obj *genv){
         obj found = _lookup(var, env);
         if(found != cell::NIL())
           return found;
-        return _lookup(var, genv);
+        return _lookup(var, *genv);
       }
 
       //いつか再帰をなくす予定
@@ -780,7 +876,7 @@ namespace PetitScheme {
         }
       }
 
-      obj run(obj code){
+      obj run(obj code, obj *genv){
         obj acc = cell::NIL();
         obj env = cell::NIL();
         obj arg = cell::NIL();
@@ -801,7 +897,7 @@ namespace PetitScheme {
         case OP_REFER:
           // var x
           //eval((car (lookup var e)) x e r s)
-          acc = car(lookup(cadr(code), env));
+          acc = car(lookup(cadr(code), env, genv));
           code = caddr(code);
           goto recursion;
         case OP_CONSTANT:
@@ -828,11 +924,11 @@ namespace PetitScheme {
           // var x
           // (set-car! (lookup var e) a)
           // eval(a x e r s)
-          set_car(lookup(cadr(code), env), acc);
+          set_car(lookup(cadr(code), env, genv), acc);
           code = caddr(code);
           goto recursion;
         case OP_DEFINE:
-          define(cadr(code), acc);
+          define(cadr(code), acc, genv);
           code = caddr(code);
           goto recursion;
 #ifdef FUTURE_FUNCTION
@@ -887,7 +983,12 @@ namespace PetitScheme {
     public:
       void repl()
       {
+        obj stack_top = NULL;
+        cell_manager::get_instance().set_stack_top(&stack_top);
+
         SexpIO io;
+        obj genv = cell::NIL();
+        genv_init(&genv);
         while(1){
           try{
             string str = io.read();
@@ -900,7 +1001,7 @@ namespace PetitScheme {
 #ifdef DEBUG
             printsexp(bcode);
 #endif
-            obj ret = run(bcode);
+            obj ret = run(bcode, &genv);
             printsexp(ret);
           }catch(std::exception &e){
             cerr << e.what() << endl;
@@ -910,15 +1011,16 @@ namespace PetitScheme {
         }
       }
 
-      VM() : genv(cell::NIL()) {
-        define("+", OP_ADD);
-        define("-", OP_SUB);
-        define("*", OP_MULTIPLY);
-        define("/", OP_DIVIDE);
-        define("list", OP_LIST);
-        define("car", OP_CAR);
-        define("cdr", OP_CDR);
+      void genv_init(obj* genv){
+        define("+", OP_ADD, genv);
+        define("-", OP_SUB, genv);
+        define("*", OP_MULTIPLY, genv);
+        define("/", OP_DIVIDE, genv);
+        define("list", OP_LIST, genv);
+        define("car", OP_CAR, genv);
+        define("cdr", OP_CDR, genv);
       }
+
     } vm;
   }
 }

@@ -3,7 +3,7 @@
 PROGRAM = petitsch
 OBJS = scheme.o
 
-CXX = g++
+CXX = g++-4.4
 CXXFLAGS = -g -Wall
 DESTDIR = /usr/local
 
@@ -18,6 +18,10 @@ $(PROGRAM) : $(OBJS)
 
 clean:
 	$(RM) $(PROGRAM) $(OBJS)
+
+.PHONY: check-syntax
+check-syntax:
+	$(CXX) -Wall -Wextra -pedantic -fsyntax-only $(CHK_SOURCES)
 
 install: $(PROGRAM)
 	[ ! -e $(DESTDIR)/bin ] && mkdir -p $(DESTDIR)/bin; \
