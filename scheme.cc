@@ -216,7 +216,6 @@ namespace PetitScheme {
           bemarked->setmark();
           if(bemarked->ispair()){
             mark_cell(bemarked->car());
-            fflush(stdout);
             mark_cell(bemarked->cdr());
           }
         }
