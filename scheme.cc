@@ -711,7 +711,7 @@ using namespace std;
 namespace PetitScheme {
   namespace VM{
 
-    const char *OP_CODE_STR[14] = {
+    const char *OP_CODE_STR[] = {
       "NULL",
       "HALT",
       "REFER",
