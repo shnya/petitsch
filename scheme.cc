@@ -887,7 +887,7 @@ namespace PetitScheme {
         cout << "acc\t";  printsexp(acc);
         cout << "code\t";  printsexp(code);
         cout << "env\t"; printsexp(env);
-        cout << "genv\t"; printsexp(genv);
+        cout << "genv\t"; printsexp(*genv);
         cout << "arg\t"; printsexp(arg);
         cout << "stack\t"; printsexp(stack);
 #endif /* DEBUG */

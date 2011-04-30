@@ -4,7 +4,7 @@ PROGRAM = petitsch
 OBJS = scheme.o
 
 CXX = g++-4.4
-CXXFLAGS = -g -Wall
+CXXFLAGS = -g -Wall -DDEBUG
 DESTDIR = /usr/local
 
 .PHONY: all clean install uninstall upload
