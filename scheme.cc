@@ -2,11 +2,13 @@
 
 #include <cstring>
 #include <cstdlib>
+#include <cstdio>
 #include <iostream>
 #include <algorithm>
 #include <string>
 #include <stdexcept>
 #include <setjmp.h>
+
 
 namespace PetitScheme {
   namespace Base {
@@ -71,47 +73,47 @@ namespace PetitScheme {
       cell* init(cell* (*arg)(cell *, cell *))
       { flag_ = T_PROC; object_.func_ = arg; return this; }
 
-      bool isunused(){ return flag_ == T_UNKNOWN; }
-      bool isopcode(){ return flag_ & T_OPCODE; }
-      bool isstring(){ return flag_ & T_STRING; }
-      bool isnumber(){ return flag_ & T_NUMBER; }
-      bool issymbol(){ return flag_ & T_SYMBOL; }
-      bool issyntax(){ return flag_ & T_SYNTAX; }
-      bool isproc(){ return flag_ & T_PROC; }
-      bool ispair(){ return flag_ & T_PAIR; }
-      bool isclosure(){ return flag_ & T_CLOSURE; }
-      bool iscontinueation(){ return flag_ & T_CONTINUATION; }
-      bool ismarked(){return flag_ & T_MARK; }
+      bool isunused() const { return flag_ == T_UNKNOWN; }
+      bool isopcode() const { return flag_ & T_OPCODE; }
+      bool isstring() const { return flag_ & T_STRING; }
+      bool isnumber() const { return flag_ & T_NUMBER; }
+      bool issymbol() const { return flag_ & T_SYMBOL; }
+      bool issyntax() const { return flag_ & T_SYNTAX; }
+      bool isproc() const { return flag_ & T_PROC; }
+      bool ispair() const { return flag_ & T_PAIR; }
+      bool isclosure() const { return flag_ & T_CLOSURE; }
+      bool iscontinuation() const { return flag_ & T_CONTINUATION; }
+      bool ismarked() const {return flag_ & T_MARK; }
       void setmark(){ flag_ |= T_MARK; }
       void clrmark(){ flag_ &= (T_MARK - 1); }
 
-      int ivalue(){
+      int ivalue() const {
         if(!isnumber() && !isopcode()) return 0;
         else return object_.ivalue_;
       }
-      const char *str(){
+      const char *str() const {
         if(!isstring() && !issymbol()) return empty_string();
         else return object_.str_.str_;
       }
-      funcp func(){
+      funcp func() const {
         if(!isproc()) return NULL;
         else return object_.func_;
       }
-      cell *car(){
+      cell *car() const {
         if(!ispair()) return NIL();
         return object_.cons_.car_;
       }
       void car(cell *cell__){
         if(ispair()) object_.cons_.car_ = cell__;
       }
-      cell *cdr(){
+      cell *cdr() const {
         if(!ispair()) return NIL();
-        else return object_.cons_.cdr_;
+        return object_.cons_.cdr_;
       }
       void cdr(cell *cell__){
         if(ispair()) object_.cons_.cdr_ = cell__;
       }
-      cell *next_freecell(){
+      cell *next_freecell() const {
         return object_.cell_;
       }
 
@@ -133,78 +135,145 @@ namespace PetitScheme {
         static const char *empty_ = "";
         return empty_;
       }
+
+      void dump(){
+        printf("addr %p type: ", reinterpret_cast<void *>(this));
+        if(isunused()){
+          printf("unknown; next_freecell=\"%p\"", reinterpret_cast<void *>(object_.cell_));
+        }else if(isstring()){
+          printf("string; value=\"%s\"", object_.str_.str_);
+        }else if(isnumber()){
+          printf("number; value=\"%d\"", object_.ivalue_);
+        }else if(issymbol()){
+          printf("symbol; value=\"%s\"", object_.str_.str_);
+        }else if(issyntax()){
+          printf("syntax; value=\"%s\"", object_.str_.str_);
+        }else if(isproc()){
+          printf("proc; func_addr=\"%p\"", reinterpret_cast<void*>(reinterpret_cast<unsigned long>(object_.func_)));
+        }else if(ispair()){
+          printf("pair; car=\"%p\",cdr=\"%p\"",
+                 reinterpret_cast<void *>(object_.cons_.car_),
+                 reinterpret_cast<void *>(object_.cons_.cdr_));
+        }else if(isclosure()){
+        }else if(iscontinuation()){
+        }else if(isopcode()){
+          printf("opcode; value=\"%d\"", object_.ivalue_);
+        }
+        printf("\n");
+      }
     };
 
     class cell_manager {
       struct cell_block {
         int size_;
-        cell **cells_;
+        cell *cells_;
         cell *free_cell_;
 
         cell_block(int size = 512) : size_(size) {
           if(size == 0) return;
-          cells_ = new cell*[size_];
-          for(int i = 0; i < size_; i++)
-            cells_[i] = new cell();
+          cells_ = new cell[size_];
           connect_freecell();
         }
 
         void connect_freecell(){
           free_cell_ = cell::NIL();
           for(int i = size_ - 1; i >= 0; i--){
-            if(cells_[i]->isunused()){
-              cells_[i]->init(free_cell_);
-              free_cell_ = cells_[i];
+            if(cells_[i].isunused()){
+              cells_[i].init(free_cell_);
+              free_cell_ = &(cells_[i]);
             }
+          }
+        }
+
+        void dump(){
+          for(int i = 0; i < size_; i++){
+            cells_[i].dump();
           }
         }
 
         void sweep(){
           for(int i = 0; i < size_; i++){
-            if(cells_[i]->ismarked()){
-              cells_[i]->clrmark();
+            if(cells_[i].ismarked()){
+              cells_[i].clrmark();
             }else{
-              cells_[i]->init();
+#ifdef DEBUG
+              printf("sweeped %p", &cells_[i]);
+              cells_[i].dump();
+#endif /* DEBUG */
+              cells_[i].init();
             }
           }
           connect_freecell();
         }
 
         void mark_cell(cell *bemarked){
+#ifdef DEBUG
+          bemarked->dump();
+#endif /* DEBUG */
+          if(bemarked == cell::NIL() || bemarked == cell::F()
+             || bemarked == cell::T()) return;
+          if(bemarked->ismarked()) return;
           bemarked->setmark();
           if(bemarked->ispair()){
             mark_cell(bemarked->car());
+            fflush(stdout);
             mark_cell(bemarked->cdr());
           }
         }
 
-        void mark_register(cell *registers, int n){
-          cell **stack_ptr = reinterpret_cast<cell**>(registers);
-          cell *heap_begin = reinterpret_cast<cell*>(cells_);
+        void mark_register(cell **registers, int n){
+          cell **register_ptr = registers;
+          cell *heap_begin = cells_;
           cell *heap_end = heap_begin + size_;
+#ifdef DEBUG
+          printf("NIL: %p, T: %p, F: %p\n", cell::NIL(),cell::T(),cell::F());
+          printf("heap_begin: %p, heap_end: %p\n", heap_begin, heap_end);
+#endif /* DEBUG */
           for(int i = 0; i < n; i++){
-            if(heap_begin <= *stack_ptr && heap_end > *stack_ptr){
-              mark_cell(*stack_ptr);
+            if(heap_begin <= *register_ptr && heap_end > *register_ptr){
+#ifdef DEBUG
+              printf("found register %p <= %p < %p \n",
+                     heap_begin, *register_ptr, heap_end);
+#endif /* DEBUG */
+              mark_cell(*register_ptr);
             }
-            stack_ptr++;
+            register_ptr++;
+#ifdef DEBUG
+            printf("register survey %p <= %p, %p\n", registers,
+                   register_ptr, *register_ptr);
+#endif /* DEBUG */
           }
         }
 
-        void mark_stack(cell *stack_top, cell *stack_end){
+        void mark_stack(cell **stack_top, cell **stack_end){
           if(stack_top > stack_end){
-            cell *tmp = stack_top;
+            cell **tmp = stack_top;
             stack_top = stack_end;
             stack_end = tmp;
           }
-          cell **stack_ptr = reinterpret_cast<cell**>(stack_top);
-          cell *heap_begin = reinterpret_cast<cell*>(cells_);
+          cell **stack_ptr = stack_top;
+          cell *heap_begin = cells_;
           cell *heap_end = heap_begin + size_;
-          cell **stack_end_addr = reinterpret_cast<cell**>(stack_end);
-          while(stack_end_addr > stack_ptr){
-            if(heap_begin <= *stack_ptr && heap_end > *stack_ptr){
-              mark_cell(*stack_ptr);
+#ifdef DEBUG
+          dump();
+          printf("NIL: %p, T: %p, F: %p\n", cell::NIL(),cell::T(),cell::F());
+          printf("heap_begin: %p, heap_end: %p\n", heap_begin, heap_end);
+#endif /* DEBUG */
+          while(stack_end > stack_ptr){
+            if(heap_begin <= *stack_ptr && *stack_ptr < heap_end){
+#ifdef DEBUG
+              printf("found stack %p <= %p < %p \n",
+                     heap_begin, *stack_ptr, heap_end);
+#endif /* DEBUG */
+              for(int i = 0; i < size_; i++)
+                if(*stack_ptr == &(cells_[i]))
+                  mark_cell(*stack_ptr);
             }
             stack_ptr++;
+#ifdef DEBUG
+            printf("stack survey %p <= %p < %p, %p\n",
+                   stack_top, stack_ptr, stack_end, *stack_ptr);
+#endif /* DEBUG */
           }
         }
 
@@ -215,16 +284,14 @@ namespace PetitScheme {
         }
 
         ~cell_block(){
-          for(int i = 0; i < size_; i++)
-            delete cells_[i];
           delete[] cells_;
         }
       };
 
       cell_block** blocks_;
       int block_siz_;
-      cell *stack_top_;
-      cell *stack_end_;
+      cell **stack_top_;
+      cell **stack_end_;
 
       cell_manager() : block_siz_(1) {
         blocks_ = new cell_block*[1];
@@ -247,6 +314,14 @@ namespace PetitScheme {
         block_siz_++;
       }
 
+      cell *search_cell(){
+        for(int i = 0; i < block_siz_; i++){
+          cell *ret = blocks_[i]->get_cell();
+          if(ret != cell::NIL()) return ret;
+        }
+        return cell::NIL();
+      }
+
     public:
       static cell_manager& get_instance(){
         static cell_manager *instance = NULL;
@@ -257,21 +332,17 @@ namespace PetitScheme {
       }
 
       void set_stack_top(cell **stack_top){
-        stack_top_ = *stack_top;
+        stack_top_ = stack_top;
       }
 
       cell *get_cell(){
-        for(int i = 0; i < block_siz_; i++){
-          cell *ret = blocks_[i]->get_cell();
-          if(ret != cell::NIL()) return ret;
-        }
+        cell *ret;
+        if((ret = search_cell()) != cell::NIL()) return ret;
         gc();
-        for(int i = 0; i < block_siz_; i++){
-          cell *ret = blocks_[i]->get_cell();
-          if(ret != cell::NIL()) return ret;
-        }
+        if((ret = search_cell()) != cell::NIL()) return ret;
+        if(ret != cell::NIL()) return ret;
         append_block();
-        cell *ret = blocks_[block_siz_-1]->get_cell();
+        ret = blocks_[block_siz_-1]->get_cell();
         if(ret == cell::NIL()) throw std::logic_error("Can't allocate memory");
         return ret;
       }
@@ -279,11 +350,14 @@ namespace PetitScheme {
       void gc(){
         jmp_buf registers;
         setjmp(registers);
-        cell end;
+        cell* end;
         stack_end_ = &end;
 
+#ifdef DEBUG
+        printf("stack top is %p, stack end is %p\n", stack_top_, stack_end_);
+#endif /* DEBUG */
         for(int i = 0; i < block_siz_; i++){
-          blocks_[i]->mark_register((cell*)registers,
+          blocks_[i]->mark_register(reinterpret_cast<cell **>(registers),
                                     sizeof(registers) / sizeof(cell *));
           blocks_[i]->mark_stack(stack_top_, stack_end_);
         }
@@ -991,10 +1065,18 @@ namespace PetitScheme {
         genv_init(&genv);
         while(1){
           try{
+#ifdef DEBUG
+            //string str = "((lambda (a) (a a)) (lambda (a) (a a)))";
             string str = io.read();
+#else
+            string str = io.read();
+#endif /* DEBUG */
             if(io.isfail()) break;
             obj code = Parser(str.c_str(), str.size()).parse();
 #ifdef DEBUG
+            printf("T ptr address %p\n", cell::T());
+            printf("F ptr address %p\n", cell::F());
+            printf("NIL ptr address %p\n", cell::NIL());
             printsexp(code);
 #endif
             obj bcode = compile(code, list(mk_opcode(OP_HALT)));
