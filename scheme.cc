@@ -239,7 +239,9 @@ namespace PetitScheme {
               printf("found register %p <= %p < %p \n",
                      heap_begin, *register_ptr, heap_end);
 #endif /* DEBUG */
-              mark_cell(*register_ptr);
+              for(int i = 0; i < size_; i++)
+                if(*register_ptr == &(cells_[i]))
+                  mark_cell(*register_ptr);
             }
             register_ptr++;
 #ifdef DEBUG
