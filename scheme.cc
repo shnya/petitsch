@@ -50,7 +50,7 @@ namespace PetitScheme {
       cell(const cell &);
       cell &operator=(const cell &);
       ~cell() {
-        if(isstring()) delete[] object_.str_.str_;
+        if(isstring() || issymbol()) delete[] object_.str_.str_;
       }
       cell* init(CELL_TYPE type, int arg)
       { flag_ = type; object_.ivalue_ = arg; return this; }
@@ -136,6 +136,11 @@ namespace PetitScheme {
         return empty_;
       }
 
+      void clear(){
+        if(isstring() || issymbol()) delete[] object_.str_.str_;
+        flag_ = T_UNKNOWN;
+      }
+
       void dump(){
         printf("addr %p type: ", reinterpret_cast<void *>(this));
         if(isunused()){
@@ -200,7 +205,7 @@ namespace PetitScheme {
               printf("sweeped %p", &cells_[i]);
               cells_[i].dump();
 #endif /* DEBUG */
-              cells_[i].init();
+              cells_[i].clear();
             }
           }
           connect_freecell();
