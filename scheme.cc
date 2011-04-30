@@ -1080,9 +1080,6 @@ namespace PetitScheme {
             if(io.isfail()) break;
             obj code = Parser(str.c_str(), str.size()).parse();
 #ifdef DEBUG
-            printf("T ptr address %p\n", cell::T());
-            printf("F ptr address %p\n", cell::F());
-            printf("NIL ptr address %p\n", cell::NIL());
             printsexp(code);
 #endif
             obj bcode = compile(code, list(mk_opcode(OP_HALT)));
