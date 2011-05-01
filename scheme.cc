@@ -284,6 +284,7 @@ namespace PetitScheme {
         }
 
         cell *get_cell(){
+          if(free_cell_ == cell::NIL()) return free_cell_;
           cell *ret = free_cell_;
           free_cell_ = free_cell_->next_freecell();
           return ret;
@@ -314,7 +315,7 @@ namespace PetitScheme {
         cell_block **new_blocks = new cell_block*[block_siz_+1];
         for(int i = 0; i < block_siz_; i++)
           new_blocks[i] = blocks_[i];
-        new_blocks[block_siz_+1] = new cell_block();
+        new_blocks[block_siz_] = new cell_block();
         delete[] blocks_;
         blocks_ = new_blocks;
         block_siz_++;
@@ -841,6 +842,15 @@ namespace PetitScheme {
       return arg;
     }
 
+    obj OP_BEGIN(obj arg, obj env){
+      return car(arg);
+    }
+
+    obj OP_DISPLAY(obj arg, obj env){
+      printsexp(car(arg));
+      return cell::NIL();
+    }
+
     class VM {
       enum OP_CODE {
         OP_HALT = 1,
@@ -921,9 +931,16 @@ namespace PetitScheme {
           if(strcmp(opcode, "quote") == 0){
             return list(mk_opcode(OP_CONSTANT), cadr(code), next);
           }else if(strcmp(opcode, "lambda") == 0){
+            obj body = cell::NIL();
+            obj begin_arg = cddr(code);
+            while(begin_arg != cell::NIL()){
+              body = cons(car(begin_arg), body);
+              begin_arg = cdr(begin_arg);
+            }
+            body = cons(mk_atom("begin"), body);
             return list(mk_opcode(OP_CLOSE),
                         cadr(code),
-                        compile(caddr(code), list(mk_opcode(OP_RETURN))),
+                        compile(body, list(mk_opcode(OP_RETURN))),
                         next);
           }else if(strcmp(opcode, "if") == 0){
             return compile(cadr(code),
@@ -1073,7 +1090,8 @@ namespace PetitScheme {
           try{
 #ifdef DEBUG
             //string str = "((lambda (a) (a a)) (lambda (a) (a a)))";
-            string str = io.read();
+            string str = "(define a (lambda () (display 1) (a)))";
+            //string str = io.read();
 #else
             string str = io.read();
 #endif /* DEBUG */
@@ -1104,6 +1122,8 @@ namespace PetitScheme {
         define("list", OP_LIST, genv);
         define("car", OP_CAR, genv);
         define("cdr", OP_CDR, genv);
+        define("begin", OP_BEGIN, genv);
+        define("display", OP_DISPLAY, genv);
       }
 
     } vm;
