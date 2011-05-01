@@ -851,6 +851,14 @@ namespace PetitScheme {
       return cell::NIL();
     }
 
+    obj OP_EQUAL(obj arg, obj env){
+      if(car(arg)->ivalue() == cadr(arg)->ivalue()){
+        return cell::T();
+      }else{
+        return cell::F();
+      }
+    }
+
     class VM {
       enum OP_CODE {
         OP_HALT = 1,
@@ -1060,6 +1068,8 @@ namespace PetitScheme {
             stack = cadddr(stack);
           }else{
             code = car(acc);
+            if(code == cell::NIL())
+              throw std::logic_error("It's not defined function!");
             env = extend(cadr(acc), caddr(acc), arg);
             arg = cell::NIL();
           }
@@ -1089,9 +1099,9 @@ namespace PetitScheme {
         while(1){
           try{
 #ifdef DEBUG
-            //string str = "((lambda (a) (a a)) (lambda (a) (a a)))";
-            string str = "(define a (lambda () (display 1) (a)))";
-            //string str = io.read();
+            //string str = "((lambda (a) (a a)) (lambda (a) (display 1) (a a)))";
+            //string str = "(define a (lambda () (display 1) (a)))\n (a)";
+            string str = io.read();
 #else
             string str = io.read();
 #endif /* DEBUG */
@@ -1119,6 +1129,7 @@ namespace PetitScheme {
         define("-", OP_SUB, genv);
         define("*", OP_MULTIPLY, genv);
         define("/", OP_DIVIDE, genv);
+        define("=", OP_EQUAL, genv);
         define("list", OP_LIST, genv);
         define("car", OP_CAR, genv);
         define("cdr", OP_CDR, genv);
