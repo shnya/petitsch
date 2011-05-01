@@ -843,8 +843,6 @@ namespace PetitScheme {
     }
 
     obj OP_BEGIN(obj arg, obj env){
-      while(cdr(arg) != cell::NIL())
-        arg = cdr(arg);
       return car(arg);
     }
 
@@ -947,7 +945,6 @@ namespace PetitScheme {
               body = cons(car(begin_arg), body);
               begin_arg = cdr(begin_arg);
             }
-            body = nreverse(body);
             body = cons(mk_atom("begin"), body);
             return list(mk_opcode(OP_CLOSE),
                         cadr(code),
