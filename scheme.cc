@@ -789,6 +789,8 @@ namespace PetitScheme {
       if(arg == cell::NIL())
         return mk_number(0);
 
+      arg = nreverse(arg);
+
       int i = car(arg)->ivalue();
       if(cdr(arg) == cell::NIL())
         return mk_number(-i);
@@ -817,6 +819,7 @@ namespace PetitScheme {
       if(arg == cell::NIL())
         return mk_number(1);
 
+      arg = nreverse(arg);
       int i = car(arg)->ivalue();
       if(cdr(arg) == cell::NIL())
         return mk_number(1/i);
@@ -945,6 +948,7 @@ namespace PetitScheme {
               body = cons(car(begin_arg), body);
               begin_arg = cdr(begin_arg);
             }
+            body = nreverse(body);
             body = cons(mk_atom("begin"), body);
             return list(mk_opcode(OP_CLOSE),
                         cadr(code),
@@ -973,6 +977,7 @@ namespace PetitScheme {
           }else{
             obj c = compile(car(code), list(mk_opcode(OP_APPLY)));
             obj args = cdr(code);
+            args = nreverse(args);
             while(args != cell::NIL()) {
               c = compile(car(args), list(mk_opcode(OP_ARGUMENT), c));
               args = cdr(args);
