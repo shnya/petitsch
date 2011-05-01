@@ -347,7 +347,6 @@ namespace PetitScheme {
         if((ret = search_cell()) != cell::NIL()) return ret;
         gc();
         if((ret = search_cell()) != cell::NIL()) return ret;
-        if(ret != cell::NIL()) return ret;
         append_block();
         ret = blocks_[block_siz_-1]->get_cell();
         if(ret == cell::NIL()) throw std::logic_error("Can't allocate memory");
