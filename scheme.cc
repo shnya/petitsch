@@ -789,8 +789,6 @@ namespace PetitScheme {
       if(arg == cell::NIL())
         return mk_number(0);
 
-      arg = nreverse(arg);
-
       int i = car(arg)->ivalue();
       if(cdr(arg) == cell::NIL())
         return mk_number(-i);
@@ -819,7 +817,6 @@ namespace PetitScheme {
       if(arg == cell::NIL())
         return mk_number(1);
 
-      arg = nreverse(arg);
       int i = car(arg)->ivalue();
       if(cdr(arg) == cell::NIL())
         return mk_number(1/i);
@@ -846,6 +843,8 @@ namespace PetitScheme {
     }
 
     obj OP_BEGIN(obj arg, obj env){
+      while(cdr(arg) != cell::NIL())
+        arg = cdr(arg);
       return car(arg);
     }
 
@@ -1072,7 +1071,7 @@ namespace PetitScheme {
             cell::funcp f = acc->func();
             if(f == NULL)
               throw std::logic_error("Can't found this procedure!");
-            acc = f(arg, env);
+            acc = f(nreverse(arg), env);
             code = car(stack);
             env = cadr(stack);
             arg = caddr(stack);
@@ -1081,7 +1080,7 @@ namespace PetitScheme {
             code = car(acc);
             if(code == cell::NIL())
               throw std::logic_error("It's not defined function!");
-            env = extend(cadr(acc), caddr(acc), arg);
+            env = extend(cadr(acc), caddr(acc), nreverse(arg));
             arg = cell::NIL();
           }
           goto recursion;
