@@ -17,6 +17,10 @@ $(PROGRAM) : $(OBJS)
 .cc.o:
 	$(CXX) $(CXXFLAGS) -c $<
 
+debug :
+	$(RM) $(PROGRAM) $(OBJS)
+	$(CXX) $(CXXFLAGS) -DDEBUG scheme.cc -o $(PROGRAM)
+
 clean:
 	$(RM) $(PROGRAM) $(OBJS)
 

@@ -959,8 +959,14 @@ namespace PetitScheme {
             return compile(caddr(code),
                            list(mk_opcode(OP_ASSIGN), cadr(code), next));
           }else if(strcmp(opcode, "define") == 0){
-            return compile(caddr(code),
-                           list(mk_opcode(OP_DEFINE), cadr(code), next));
+            if(cadr(code)->ispair()){
+              return compile(cons(mk_atom("lambda"),
+                                  cons(cdadr(code), cddr(code))),
+                             list(mk_opcode(OP_DEFINE), caadr(code), next));
+            }else{
+              return compile(caddr(code),
+                             list(mk_opcode(OP_DEFINE), cadr(code), next));
+            }
 #ifdef FUTURE_FUNCTION
           }else if(strcmp(opcode, "call/cc") == 0){
 #endif
@@ -988,13 +994,13 @@ namespace PetitScheme {
         obj stack = cell::NIL();
       recursion:
 #ifdef DEBUG
-        cout << "\n";
-        cout << "acc\t";  printsexp(acc);
-        cout << "code\t";  printsexp(code);
-        cout << "env\t"; printsexp(env);
-        cout << "genv\t"; printsexp(*genv);
-        cout << "arg\t"; printsexp(arg);
-        cout << "stack\t"; printsexp(stack);
+          cout << "\n";
+          cout << "acc\t";  printsexp(acc);
+          cout << "code\t";  printsexp(code);
+          cout << "env\t"; printsexp(env);
+          cout << "genv\t"; printsexp(*genv);
+          cout << "arg\t"; printsexp(arg);
+          cout << "stack\t"; printsexp(stack);
 #endif /* DEBUG */
         switch (car(code)->ivalue()){
         case OP_HALT:
