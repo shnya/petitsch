@@ -940,18 +940,15 @@ namespace PetitScheme {
           if(strcmp(opcode, "quote") == 0){
             return list(mk_opcode(OP_CONSTANT), cadr(code), next);
           }else if(strcmp(opcode, "lambda") == 0){
-            obj body = cell::NIL();
-            obj begin_arg = cddr(code);
-            while(begin_arg != cell::NIL()){
-              body = cons(car(begin_arg), body);
-              begin_arg = cdr(begin_arg);
+            obj body = list(mk_opcode(OP_RETURN));
+            obj body_exps = cddr(code);
+            body_exps = nreverse(body_exps);
+            while(body_exps != cell::NIL()){
+              body = compile(car(body_exps),body);
+              body_exps = cdr(body_exps);
             }
-            body = nreverse(body);
-            body = cons(mk_atom("begin"), body);
-            return list(mk_opcode(OP_CLOSE),
-                        cadr(code),
-                        compile(body, list(mk_opcode(OP_RETURN))),
-                        next);
+            return list(mk_opcode(OP_CLOSE), cadr(code),
+                        body, next);
           }else if(strcmp(opcode, "if") == 0){
             return compile(cadr(code),
                            list(mk_opcode(OP_TEST),
@@ -969,9 +966,14 @@ namespace PetitScheme {
               return compile(caddr(code),
                              list(mk_opcode(OP_DEFINE), cadr(code), next));
             }
-#ifdef FUTURE_FUNCTION
           }else if(strcmp(opcode, "call/cc") == 0){
-#endif
+            obj c = list(mk_opcode(OP_CONTI),
+                         list(mk_opcode(OP_ARGUMENT),
+                              compile(cadr(code), list(mk_opcode(OP_APPLY)))));
+            if(car(next)->ivalue() == OP_RETURN)
+              return c;
+            else
+              return list(mk_opcode(OP_FRAME), next, c);
           }else{
             obj c = compile(car(code), list(mk_opcode(OP_APPLY)));
             obj args = cdr(code);
@@ -997,13 +999,13 @@ namespace PetitScheme {
         obj stack = cell::NIL();
       recursion:
 #ifdef DEBUG
-          cout << "\n";
-          cout << "acc\t";  printsexp(acc);
-          cout << "code\t";  printsexp(code);
-          cout << "env\t"; printsexp(env);
-          cout << "genv\t"; printsexp(*genv);
-          cout << "arg\t"; printsexp(arg);
-          cout << "stack\t"; printsexp(stack);
+        cout << "\n";
+        cout << "acc\t";  printsexp(acc);
+        cout << "code\t";  printsexp(code);
+        cout << "env\t"; printsexp(env);
+        cout << "genv\t"; printsexp(*genv);
+        cout << "arg\t"; printsexp(arg);
+        cout << "stack\t"; printsexp(stack);
 #endif /* DEBUG */
         switch (car(code)->ivalue()){
         case OP_HALT:
@@ -1042,13 +1044,25 @@ namespace PetitScheme {
           code = caddr(code);
           goto recursion;
         case OP_DEFINE:
-          define(cadr(code), acc, genv);
+          if(env == cell::NIL())
+            define(cadr(code), acc, genv);
+          else
+            extend(env, cadr(code), acc);
+          acc = cadr(code);
           code = caddr(code);
           goto recursion;
-#ifdef FUTURE_FUNCTION
         case OP_CONTI:
-        case OP_NUTATE:
-#endif
+          acc = closure(list(mk_opcode(OP_NUATE), stack,
+                             mk_symbol("#<continuation arg>")),
+                        cell::NIL(),
+                        list(mk_symbol("#<continuation arg>")));
+          code = cadr(code);
+          goto recursion;
+        case OP_NUATE:
+          acc = car(lookup(caddr(code), env, genv));
+          stack = cadr(code);
+          code = list(mk_opcode(OP_RETURN));
+          goto recursion;
         case OP_ARGUMENT:
           // x
           // eval(a x e cons(a r) s)
