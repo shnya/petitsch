@@ -13,9 +13,11 @@
 namespace PetitScheme {
   namespace Base {
 
-    struct cell {
+    class cell {
+    public:
       typedef cell*(*funcp)(cell *, cell *);
 
+    private:
       short flag_;
       union _object {
         cell *cell_;
@@ -32,6 +34,11 @@ namespace PetitScheme {
         } str_;
       } object_;
 
+
+      cell(const cell &_cell);
+      cell &operator=(const cell &);
+    public:
+
       enum CELL_TYPE {
         T_UNKNOWN = 0,
         T_STRING  = 1,
@@ -46,11 +53,10 @@ namespace PetitScheme {
         T_MARK = 32768
       };
 
+
       cell() : flag_(T_UNKNOWN) {}
-      cell(const cell &);
-      cell &operator=(const cell &);
       ~cell() {
-        if(isstring() || issymbol()) delete[] object_.str_.str_;
+        if(isstring() || issymbol() || issyntax()) delete[] object_.str_.str_;
       }
       cell* init(CELL_TYPE type, int arg)
       { flag_ = type; object_.ivalue_ = arg; return this; }
@@ -68,10 +74,31 @@ namespace PetitScheme {
       }
       cell* init()
       { flag_ = T_UNKNOWN; return this; }
-      cell* init(cell *arg)
-      { flag_ = T_UNKNOWN; object_.cell_ = arg; return this; }
       cell* init(cell* (*arg)(cell *, cell *))
       { flag_ = T_PROC; object_.func_ = arg; return this; }
+      cell* init(cell *arg){
+        this->clear();
+        flag_ = arg->flag_;
+        if(isunused()){
+          // do nothing;
+        }else if(ispair()){
+          object_.cons_.car_ = arg->object_.cons_.car_;
+          object_.cons_.cdr_ = arg->object_.cons_.cdr_;
+        }else if(isproc()){
+          object_.func_ = arg->object_.func_;
+        }else if(issymbol() || isstring() || issyntax()){
+          object_.str_.str_ = strdup(arg->object_.str_.str_);
+          object_.str_.len_ = arg->object_.str_.len_;
+        }else if(isopcode() || isnumber()){
+          object_.ivalue_ = arg->object_.ivalue_;
+        }else{
+          throw std::logic_error("unknown type");
+        }
+        return this;
+      }
+
+      cell* connect(cell *arg)
+      { flag_ = T_UNKNOWN; object_.cell_ = arg; return this; }
 
       bool isunused() const { return flag_ == T_UNKNOWN; }
       bool isopcode() const { return flag_ & T_OPCODE; }
@@ -137,7 +164,7 @@ namespace PetitScheme {
       }
 
       void clear(){
-        if(isstring() || issymbol()) delete[] object_.str_.str_;
+        if(isstring() || issymbol() || issyntax()) delete[] object_.str_.str_;
         flag_ = T_UNKNOWN;
       }
 
@@ -184,7 +211,7 @@ namespace PetitScheme {
           free_cell_ = cell::NIL();
           for(int i = size_ - 1; i >= 0; i--){
             if(cells_[i].isunused()){
-              cells_[i].init(free_cell_);
+              cells_[i].connect(free_cell_);
               free_cell_ = &(cells_[i]);
             }
           }
@@ -351,6 +378,14 @@ namespace PetitScheme {
         ret = blocks_[block_siz_-1]->get_cell();
         if(ret == cell::NIL()) throw std::logic_error("Can't allocate memory");
         return ret;
+      }
+
+      cell *clone(cell *_cell){
+        if(_cell->ispair()){
+          return get_cell()->init(clone(_cell->car()),clone(_cell->cdr()));
+        }else{
+          return get_cell()->init(_cell);
+        }
       }
 
       void gc(){
@@ -583,8 +618,6 @@ namespace PetitScheme
           return Token(TOK_LPAREN, '(');
         case ')':
           return Token(TOK_RPAREN, ')');
-        case '.':
-          return Token(TOK_DOT, '.');
         case ';':
           while(!isdelim(current_[index_++], "\n")) ;
           return Token(TOK_COMMENT, ';');
@@ -598,6 +631,9 @@ namespace PetitScheme
           return Token(TOK_COMMA, ',');
         case '#':
           return Token(TOK_SHARP, '#');
+        case '.':
+          if(current_[index_] == ' ')
+            return Token(TOK_DOT, '.');
         default:
           size_t offset = index_ - 1;
           skipchar();
@@ -931,12 +967,109 @@ namespace PetitScheme {
         return _lookup(var, *genv);
       }
 
+      obj append(obj left, obj right){
+        if(left->ispair()){
+          return cons(car(left),append(cdr(left),right));
+        }else{
+          return right;
+        }
+      }
+
+      obj assoc_lookup(obj lst, obj key_obj){
+        const char *key = key_obj->str();
+        while(lst != cell::NIL()){
+          if(strcmp(caar(lst)->str(),key) == 0){
+            return cdar(lst);
+          }
+          lst = cdr(lst);
+        }
+        return cell::NIL();
+      }
+
+      bool reserved_lookup(obj reserved, obj key_obj){
+        const char *key = key_obj->str();
+        while(reserved != cell::NIL()){
+          if(strcmp(car(reserved)->str(),key) == 0)
+            return true;
+          reserved = cdr(reserved);
+        }
+        return false;
+      }
+
+      obj pattern_match(obj templ, obj real, obj reserved){
+        //cout << "templ: "; printsexp(templ);
+        //cout << "real: "; printsexp(real);
+        if(templ == cell::NIL() && real == cell::NIL()){
+          return cell::NIL();
+        }else if(templ != cell::NIL() && real != cell::NIL()){
+          if(templ->ispair() && real->ispair()){
+            if(strcmp(car(templ)->str(), "...") == 0)
+              return list(cons(car(templ),real));
+
+            obj bind_car = pattern_match(car(templ),car(real),reserved);
+            if(bind_car == NULL) return NULL;
+            obj bind_cdr = pattern_match(cdr(templ),cdr(real),reserved);
+            if(bind_cdr == NULL) return NULL;
+            return append(bind_car,bind_cdr);
+          }else if(!templ->ispair() && !real->ispair()){
+            if(strcmp(templ->str(), "_") == 0 || reserved_lookup(reserved,real))
+              return cell::NIL();
+            return list(cons(templ,real));
+          }else{
+            return list(cons(templ,real));
+          }
+        }else{
+          if(strcmp(car(templ)->str(),"...") == 0)
+            return list(cons(car(templ), real));
+          return NULL;
+        }
+      }
+
+      obj bind_lookup(obj bind, obj key_obj){
+        const char *key = key_obj->str();
+        while(bind != cell::NIL()){
+          if(strcmp(caar(bind)->str(),key) == 0){
+            if(strcmp(key,"...") == 0){
+              set_car(car(bind),mk_symbol("#<pattern...used>"));
+            }
+            return cdar(bind);
+          }
+          bind = cdr(bind);
+        }
+        return NULL;
+      }
+
+      obj macro_expand(obj bind, obj templ){
+        //printsexp(templ);
+        if(templ->ispair()){
+          if(strcmp(cadr(templ)->str(),"...") == 0){
+            obj val = bind_lookup(bind,cadr(templ));
+            if(val != NULL){
+              return cons(macro_expand(bind,car(templ)), val);
+            }
+          }
+          return cons(macro_expand(bind,car(templ)),
+                      macro_expand(bind,cdr(templ)));
+        }else{
+          obj val = bind_lookup(bind,templ);
+          if(val != NULL){
+            //cout << "binded: key: " << templ->str();
+            //cout << "val: "; printsexp(val);
+
+            return val;
+          }else{
+            return templ;
+          }
+        }
+      }
+
       //いつか再帰をなくす予定
-      obj compile(obj code, obj next){
+      obj compile(obj code, obj next, obj *syntax){
         if(code->issymbol()){
           return list(mk_opcode(OP_REFER), code, next);
         }else if(code->ispair()){
           const char *opcode = car(code)->str();
+          obj matched_syntax;
           if(strcmp(opcode, "quote") == 0){
             return list(mk_opcode(OP_CONSTANT), cadr(code), next);
           }else if(strcmp(opcode, "lambda") == 0){
@@ -944,7 +1077,7 @@ namespace PetitScheme {
             obj body_exps = cddr(code);
             body_exps = nreverse(body_exps);
             while(body_exps != cell::NIL()){
-              body = compile(car(body_exps),body);
+              body = compile(car(body_exps),body, syntax);
               body_exps = cdr(body_exps);
             }
             return list(mk_opcode(OP_CLOSE), cadr(code),
@@ -952,34 +1085,63 @@ namespace PetitScheme {
           }else if(strcmp(opcode, "if") == 0){
             return compile(cadr(code),
                            list(mk_opcode(OP_TEST),
-                                compile(caddr(code), next),
-                                compile(cadddr(code), next)));
+                                compile(caddr(code), next, syntax),
+                                compile(cadddr(code), next, syntax)), syntax);
           }else if(strcmp(opcode, "set!") == 0){
             return compile(caddr(code),
-                           list(mk_opcode(OP_ASSIGN), cadr(code), next));
+                           list(mk_opcode(OP_ASSIGN), cadr(code), next),
+                           syntax);
           }else if(strcmp(opcode, "define") == 0){
             if(cadr(code)->ispair()){
               return compile(cons(mk_atom("lambda"),
                                   cons(cdadr(code), cddr(code))),
-                             list(mk_opcode(OP_DEFINE), caadr(code), next));
+                             list(mk_opcode(OP_DEFINE), caadr(code), next),
+                             syntax);
             }else{
               return compile(caddr(code),
-                             list(mk_opcode(OP_DEFINE), cadr(code), next));
+                             list(mk_opcode(OP_DEFINE), cadr(code), next),
+                             syntax);
             }
           }else if(strcmp(opcode, "call/cc") == 0){
             obj c = list(mk_opcode(OP_CONTI),
                          list(mk_opcode(OP_ARGUMENT),
-                              compile(cadr(code), list(mk_opcode(OP_APPLY)))));
+                              compile(cadr(code), list(mk_opcode(OP_APPLY)),
+                                      syntax)));
             if(car(next)->ivalue() == OP_RETURN)
               return c;
             else
               return list(mk_opcode(OP_FRAME), next, c);
+          }else if(strcmp(opcode, "define-syntax") == 0){
+            obj name = cadr(code);
+            obj transformer = caddr(code);
+            *syntax = cons(cons(name,transformer),*syntax);
+            return next;
+          }else if((matched_syntax = assoc_lookup(*syntax, car(code)))
+                   != cell::NIL()){
+            //printsexp(matched_syntax);
+            if(strcmp(car(matched_syntax)->str(),"syntax-rules") == 0){
+              obj reserved = cadr(matched_syntax);
+              obj patterns = cddr(matched_syntax);
+              obj bind = NULL;
+              while(patterns != cell::NIL()){
+                bind = pattern_match(caar(patterns),code,
+                                     cons(car(code),reserved));
+                if(bind != NULL) break;
+                patterns = cdr(patterns);
+              }
+              if(bind == NULL) throw logic_error("not match macro");
+              obj expanded = macro_expand(bind, cadar(patterns));
+              //cout << "expanded: "; printsexp(expanded);
+              return compile(expanded, next, syntax);
+            }else{
+              throw logic_error("not implemented other macro syntax rule");
+            }
           }else{
-            obj c = compile(car(code), list(mk_opcode(OP_APPLY)));
+            obj c = compile(car(code), list(mk_opcode(OP_APPLY)),syntax);
             obj args = cdr(code);
             args = nreverse(args);
             while(args != cell::NIL()) {
-              c = compile(car(args), list(mk_opcode(OP_ARGUMENT), c));
+              c = compile(car(args), list(mk_opcode(OP_ARGUMENT), c),syntax);
               args = cdr(args);
             }
             if(car(next)->ivalue() == OP_RETURN)
@@ -1119,12 +1281,26 @@ namespace PetitScheme {
         SexpIO io;
         obj genv = cell::NIL();
         genv_init(&genv);
+        obj syntax = cell::NIL();
         while(1){
           try{
 #ifdef DEBUG
+            //string str = io.read();
             //string str = "((lambda (a) (a a)) (lambda (a) (display 1) (a a)))";
             //string str = "(define a (lambda () (display 1) (a)))\n (a)";
-            string str = io.read();
+            string str = "(define-syntax my-and"
+              " (syntax-rules ()"
+              " ((_) (t))"
+              " ((_ e) e)"
+              " ((_ e1 e2 ...)"
+              " (if e1"
+              " (my-and e2 ...)"
+              " (f)))))";
+            obj scode = Parser(str.c_str(), str.size()).parse();
+            obj sbcode = compile(scode, list(mk_opcode(OP_HALT)), &syntax);
+            obj sret = run(sbcode, &genv);
+            printsexp(syntax);
+            str = "(if (my-and (= 1 2) (= 2 2) (= 3 5)) (display 2) (display 3))";
 #else
             string str = io.read();
 #endif /* DEBUG */
@@ -1133,12 +1309,15 @@ namespace PetitScheme {
 #ifdef DEBUG
             printsexp(code);
 #endif
-            obj bcode = compile(code, list(mk_opcode(OP_HALT)));
+            obj bcode = compile(code, list(mk_opcode(OP_HALT)), &syntax);
 #ifdef DEBUG
             printsexp(bcode);
 #endif
             obj ret = run(bcode, &genv);
             printsexp(ret);
+#ifdef DEBUG
+            break;
+#endif
           }catch(std::exception &e){
             cerr << e.what() << endl;
             break;

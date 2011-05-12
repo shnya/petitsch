@@ -3,7 +3,7 @@
 PROGRAM = petitsch
 OBJS = scheme.o
 
-CXX = c++
+CXX = g++
 CXXFLAGS = -g -Wall
 #CXXFLAGS = -g -Wall -DDEBUG
 DESTDIR = /usr/local
@@ -12,6 +12,9 @@ DESTDIR = /usr/local
 all : $(PROGRAM)
 
 $(PROGRAM) : $(OBJS)
+	$(CXX) -o $(PROGRAM) $^
+
+scheme :  $(OBJS)
 	$(CXX) -o $(PROGRAM) $^
 
 .cc.o:
