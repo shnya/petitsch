@@ -1053,14 +1053,14 @@ namespace PetitScheme {
         return res;
       }
 
-      obj bind_lookup(obj bind, obj key_obj){
-        if(key_obj->ispair()){
+      obj bind_lookup(obj bind, obj *key_objp){
+        if((*key_objp)->ispair()){
           obj ret = NULL, templ = cell::NIL;
           obj key;
           while(bind != cell::NIL){
             if(!caar(bind)->ispair()) goto skip;
             templ = caar(bind);
-            key = key_obj;
+            key = *key_objp;
 #ifdef DEBUG
             cout << "templ_bindq: "; printsexp(templ);
             cout << "key: "; printsexp(key);
@@ -1077,13 +1077,14 @@ namespace PetitScheme {
               if(key == cell::NIL) goto skip;
               if(strcmp(car(key)->str(),"...")  != 0) goto skip;
             }
+            *key_objp = cdr(key);
             return cdar(bind);
           skip:
             bind = cdr(bind);
           }
           return NULL;
         }
-        const char *key = key_obj->str();
+        const char *key = (*key_objp)->str();
         while(bind != cell::NIL){
           if(caar(bind)->ispair())
             goto skip2;
@@ -1102,15 +1103,15 @@ namespace PetitScheme {
 #endif
         if(templ->ispair()){
           if(strcmp(cadr(templ)->str(),"...") == 0){
-            obj val = bind_lookup(bind,templ);
+            obj val = bind_lookup(bind,&templ);
             if(val != NULL){
-              return val;
+              return append(val,macro_expand(bind,templ));
             }
           }
           return cons(macro_expand(bind,car(templ)),
                       macro_expand(bind,cdr(templ)));
         }else{
-          obj val = bind_lookup(bind,templ);
+          obj val = bind_lookup(bind,&templ);
           if(val != NULL){
 #ifdef DEBUG
             cout << "binded: key: " << templ->str();
