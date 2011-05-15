@@ -915,7 +915,7 @@ namespace PetitScheme {
       return arg;
     }
 
-    obj OP_LIST_ASTA(obj arg, obj env){
+    obj OP_LIST_ASTA_ASTA(obj arg, obj env){
       printsexp(arg);
       obj ret = cell::NIL;
       while(arg != cell::NIL){
@@ -1182,7 +1182,7 @@ namespace PetitScheme {
             }
             quoted = cdr(quoted);
           }
-          return cons(mk_symbol("list*"),nreverse(ret));
+          return cons(mk_symbol("list**"),nreverse(ret));
         }else{
           return list(mk_symbol("quote"), quoted);
         }
@@ -1469,7 +1469,7 @@ namespace PetitScheme {
         define("/", OP_DIVIDE, genv);
         define("=", OP_EQUAL, genv);
         define("list", OP_LIST, genv);
-        define("list*", OP_LIST_ASTA, genv);
+        define("list**", OP_LIST_ASTA_ASTA, genv);
         define("car", OP_CAR, genv);
         define("cdr", OP_CDR, genv);
         define("begin", OP_BEGIN, genv);
