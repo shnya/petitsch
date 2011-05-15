@@ -1095,11 +1095,11 @@ namespace PetitScheme {
           while(bind != cell::NIL){
             obj templ = caar(bind);
             obj key = *key_objp;
-            if(!caar(bind)->ispair()) goto skip;
 #ifdef DEBUG
             cout << "templ_bind: "; printsexp(templ);
             cout << "key: "; printsexp(key);
 #endif
+            if(!caar(bind)->ispair()) goto skip;
             if(!equal(car(templ),car(key))) goto skip;
             while(cdr(templ) != cell::NIL){
               templ = cdr(templ); key = cdr(key);
