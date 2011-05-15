@@ -54,7 +54,7 @@ namespace PetitScheme {
       };
 
       static cell *NIL,*T,*F;
-      static cell ___NIL,___T,___F;
+      static cell ___NIL___,___T___,___F___;
 
 
       cell() : flag_(T_UNKNOWN) {}
@@ -396,12 +396,12 @@ namespace PetitScheme {
       }
     };
 
-    cell cell::___NIL;
-    cell cell::___T;
-    cell cell::___F;
-    cell* cell::NIL = &___NIL;
-    cell* cell::T = &___T;
-    cell* cell::F = &___F;
+    cell cell::___NIL___;
+    cell cell::___T___;
+    cell cell::___F___;
+    cell* cell::NIL = &___NIL___;
+    cell* cell::T = &___T___;
+    cell* cell::F = &___F___;
     void set_car(cell *c, cell *d){ c->car(d); }
     void set_cdr(cell *c, cell *d){ c->cdr(d); }
     cell* car(cell *c){ return c->car(); }
