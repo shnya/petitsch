@@ -512,7 +512,7 @@ namespace PetitScheme
       TOK_DQUOTE = 6,
       TOK_BQUOTE = 7,
       TOK_COMMA = 8,
-      TOK_ATMARK = 9,
+      TOK_COMMA_AT = 9,
       TOK_SHARP = 10,
       TOK_STR = 11,
       TOK_EOF = 254,
@@ -606,6 +606,7 @@ namespace PetitScheme
       Token next(){
         skipspace();
 
+        size_t offset;
         switch (current_[index_++]){
         case '(':
           return Token(TOK_LPAREN, '(');
@@ -621,14 +622,19 @@ namespace PetitScheme
         case '`':
           return Token(TOK_BQUOTE, '`');
         case ',':
-          return Token(TOK_COMMA, ',');
+          if(current_[index_] == '@')
+            return Token(TOK_COMMA_AT, current_, index_++-1, 2);
+          else
+            return Token(TOK_COMMA, ',');
         case '#':
-          return Token(TOK_SHARP, '#');
+          offset = index_ - 1;
+          skipchar();
+          return Token(TOK_SHARP, current_, offset, index_ - offset);
         case '.':
-          if(current_[index_] == ' ')
+          if(isdelim(current_[index_], " \t\r\n"))
             return Token(TOK_DOT, '.');
         default:
-          size_t offset = index_ - 1;
+          offset = index_ - 1;
           skipchar();
           return Token(TOK_ATOM, current_, offset, index_ - offset);
         }
@@ -677,12 +683,19 @@ namespace PetitScheme
           return list(Base::mk_symbol("quote"), parse_atom());
         case TOK_DOT:
           return rdot;
-#ifdef FUTURE_FUNCTION
         case TOK_BQUOTE:
+          return list(Base::mk_symbol("quasiquote"), parse_atom());
         case TOK_COMMA:
-        case TOK_ATMARK:
+          return list(Base::mk_symbol("unquote"), parse_atom());
+        case TOK_COMMA_AT:
+          return list(Base::mk_symbol("unquote-splicing"), parse_atom());
         case TOK_SHARP:
-#endif
+          if(strcmp(tok.str(),"#t") == 0)
+            return Base::cell::T;
+          else if(strcmp(tok.str(),"#f") == 0)
+            return Base::cell::F;
+          else
+            return Base::mk_atom(tok.str());
         default:
           abort();
         }
