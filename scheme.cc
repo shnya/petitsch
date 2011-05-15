@@ -1090,20 +1090,6 @@ namespace PetitScheme {
         return res;
       }
 
-      bool equal_sym(obj a, obj b){
-        if(a->ispair() && b->ispair()){
-          return equal_sym(car(a),car(b))
-            && equal_sym(cdr(a),cdr(b));
-        }else if(!a->ispair() && !b->ispair()){
-          if(strcmp(a->str(),b->str()) == 0)
-            return true;
-          else
-            return false;
-        }else{
-          return false;
-        }
-      }
-
       obj bind_lookup(obj bind, obj *key_objp){
         if((*key_objp)->ispair()){
           while(bind != cell::NIL){
@@ -1111,16 +1097,12 @@ namespace PetitScheme {
             obj key = *key_objp;
             if(!caar(bind)->ispair()) goto skip;
 #ifdef DEBUG
-            cout << "templ_bindq: "; printsexp(templ);
+            cout << "templ_bind: "; printsexp(templ);
             cout << "key: "; printsexp(key);
 #endif
-            if(!equal_sym(car(templ),car(key))) goto skip;
+            if(!equal(car(templ),car(key))) goto skip;
             while(cdr(templ) != cell::NIL){
               templ = cdr(templ); key = cdr(key);
-#ifdef DEBUG
-              cout << "templ_bin: "; printsexp(templ);
-              cout << "key_bin: "; printsexp(key);
-#endif
               // 同数かチェック
               if(key == cell::NIL) goto skip;
               if(strcmp(car(key)->str(),"...")  != 0) goto skip;
@@ -1131,18 +1113,19 @@ namespace PetitScheme {
             bind = cdr(bind);
           }
           return NULL;
-        }
-        const char *key = (*key_objp)->str();
-        while(bind != cell::NIL){
-          if(caar(bind)->ispair())
-            goto skip2;
-          if(strcmp(caar(bind)->str(),key) == 0){
-            return cdar(bind);
+        }else{
+          const char *key = (*key_objp)->str();
+          while(bind != cell::NIL){
+            if(caar(bind)->ispair())
+              goto skip2;
+            if(strcmp(caar(bind)->str(),key) == 0){
+              return cdar(bind);
+            }
+          skip2:
+            bind = cdr(bind);
           }
-        skip2:
-          bind = cdr(bind);
+          return NULL;
         }
-        return NULL;
       }
 
       obj macro_expand(obj bind, obj templ){
