@@ -501,6 +501,28 @@ namespace PetitScheme {
         return right;
       }
     }
+    bool equal(cell *left, cell *right){
+      if(left->issametype(right)){
+        if(left->isunused()){
+          if(left == right) // T == T || NIL == NIL || F == F
+            return true;
+          else
+            return false;
+        }else if(left->ispair()){
+          return equal(car(left),car(right))
+            && equal(cdr(left),cdr(right));
+        }else if(left->isproc()){
+          return left->func() == right->func();
+        }else if(left->issymbol() || left->isstring() || left->issyntax()){
+          return strcmp(left->str(),right->str()) == 0;
+        }else if(left->isopcode() || left->isnumber()){
+          return left->ivalue() == right->ivalue();
+        }else{
+          throw std::logic_error("unknown type in equal comparision");
+        }
+      }
+      return false;
+    }
 
   }
 
@@ -705,7 +727,7 @@ namespace PetitScheme
           else if(strcmp(tok.str(),"#f") == 0)
             return Base::cell::F;
           else
-            return Base::mk_atom(tok.str());
+            return Base::mk_symbol(tok.str());
         default:
           abort();
         }
@@ -1180,7 +1202,7 @@ namespace PetitScheme {
                            syntax);
           }else if(strcmp(opcode, "define") == 0){
             if(cadr(code)->ispair()){
-              return compile(cons(mk_atom("lambda"),
+              return compile(cons(mk_symbol("lambda"),
                                   cons(cdadr(code), cddr(code))),
                              list(mk_opcode(OP_DEFINE), caadr(code), next),
                              syntax);
