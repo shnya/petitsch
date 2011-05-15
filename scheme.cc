@@ -915,6 +915,16 @@ namespace PetitScheme {
       return arg;
     }
 
+    obj OP_LIST_ASTA(obj arg, obj env){
+      printsexp(arg);
+      obj ret = cell::NIL;
+      while(arg != cell::NIL){
+        ret = append(ret, car(arg));
+        arg = cdr(arg);
+      }
+      return ret;
+    }
+
     obj OP_BEGIN(obj arg, obj env){
       while(cdr(arg) != cell::NIL)
         arg = cdr(arg);
@@ -1155,6 +1165,29 @@ namespace PetitScheme {
         }
       }
 
+      obj quasiquote(obj quoted){
+        if(quoted->ispair()){
+          obj ret = cell::NIL;
+          while(quoted != cell::NIL){
+            if(car(quoted)->ispair()){
+              if(strcmp(caar(quoted)->str(),"unquote") == 0){
+                ret = cons(list(mk_symbol("list"),cadar(quoted)),ret);
+              }else if(strcmp(caar(quoted)->str(), "unquote-splicing") == 0){
+                ret = cons(cadar(quoted),ret);
+              }else{
+                ret = cons(list(mk_symbol("list"),quasiquote(car(quoted))),ret);
+              }
+            }else{
+              ret = cons(list(mk_symbol("list"),quasiquote(car(quoted))),ret);
+            }
+            quoted = cdr(quoted);
+          }
+          return cons(mk_symbol("list*"),nreverse(ret));
+        }else{
+          return list(mk_symbol("quote"), quoted);
+        }
+      }
+
       //いつか再帰をなくす予定
       obj compile(obj code, obj next, obj *syntax){
         if(code->issymbol()){
@@ -1164,6 +1197,9 @@ namespace PetitScheme {
           obj matched_syntax;
           if(strcmp(opcode, "quote") == 0){
             return list(mk_opcode(OP_CONSTANT), cadr(code), next);
+          }else if(strcmp(opcode, "quasiquote") == 0){
+            //printsexp(quasiquote(cadr(code)));
+            return compile(quasiquote(cadr(code)), next, syntax);
           }else if(strcmp(opcode, "lambda") == 0){
             obj body = list(mk_opcode(OP_RETURN));
             obj body_exps = cddr(code);
@@ -1383,8 +1419,10 @@ namespace PetitScheme {
           try{
 #ifdef DEBUG
             //string str = io.read();
+            string str = "`(3 ,(list 3 5))";
             //string str = "((lambda (a) (a a)) (lambda (a) (display 1) (a a)))";
             //string str = "(define a (lambda () (display 1) (a)))\n (a)";
+            /*
             string str = "(define-syntax my-and"
               " (syntax-rules ()"
               " ((_) (t))"
@@ -1398,6 +1436,7 @@ namespace PetitScheme {
             run(sbcode, &genv);
             printsexp(syntax);
             str = "(if (my-and (= 1 1) (= 2 2) (= 3 3)) (display 2) (display 3))";
+            */
 #else
             string str = io.read();
 #endif /* DEBUG */
@@ -1430,6 +1469,7 @@ namespace PetitScheme {
         define("/", OP_DIVIDE, genv);
         define("=", OP_EQUAL, genv);
         define("list", OP_LIST, genv);
+        define("list*", OP_LIST_ASTA, genv);
         define("car", OP_CAR, genv);
         define("cdr", OP_CDR, genv);
         define("begin", OP_BEGIN, genv);
