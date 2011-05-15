@@ -1053,20 +1053,31 @@ namespace PetitScheme {
         return res;
       }
 
+      bool equal_sym(obj a, obj b){
+        if(a->ispair() && b->ispair()){
+          return equal_sym(car(a),car(b))
+            && equal_sym(cdr(a),cdr(b));
+        }else if(!a->ispair() && !b->ispair()){
+          if(strcmp(a->str(),b->str()) == 0)
+            return true;
+          else
+            return false;
+        }else{
+          return false;
+        }
+      }
+
       obj bind_lookup(obj bind, obj *key_objp){
         if((*key_objp)->ispair()){
-          obj ret = NULL, templ = cell::NIL;
-          obj key;
           while(bind != cell::NIL){
+            obj templ = caar(bind);
+            obj key = *key_objp;
             if(!caar(bind)->ispair()) goto skip;
-            templ = caar(bind);
-            key = *key_objp;
 #ifdef DEBUG
             cout << "templ_bindq: "; printsexp(templ);
             cout << "key: "; printsexp(key);
 #endif
-            ret = pattern_match(list(car(templ)), list(car(key)), cell::NIL);
-            if(ret == NULL) goto skip;
+            if(!equal_sym(car(templ),car(key))) goto skip;
             while(cdr(templ) != cell::NIL){
               templ = cdr(templ); key = cdr(key);
 #ifdef DEBUG
