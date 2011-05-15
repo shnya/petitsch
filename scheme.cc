@@ -13,6 +13,7 @@
 namespace PetitScheme {
   namespace Base {
 
+
     class cell {
     public:
       typedef cell*(*funcp)(cell *, cell *);
@@ -36,7 +37,6 @@ namespace PetitScheme {
 
 
       cell(const cell &_cell);
-      cell &operator=(const cell &);
     public:
 
       enum CELL_TYPE {
@@ -52,6 +52,9 @@ namespace PetitScheme {
         T_OPCODE = 256,
         T_MARK = 32768
       };
+
+      static cell *NIL,*T,*F;
+      static cell ___NIL,___T,___F;
 
 
       cell() : flag_(T_UNKNOWN) {}
@@ -119,7 +122,7 @@ namespace PetitScheme {
         else return object_.ivalue_;
       }
       const char *str() const {
-        if(!isstring() && !issymbol()) return empty_string();
+        if(!isstring() && !issymbol()) return "";
         else return object_.str_.str_;
       }
       funcp func() const {
@@ -127,14 +130,14 @@ namespace PetitScheme {
         else return object_.func_;
       }
       cell *car() const {
-        if(!ispair()) return NIL();
+        if(!ispair()) return NIL;
         return object_.cons_.car_;
       }
       void car(cell *cell__){
         if(ispair()) object_.cons_.car_ = cell__;
       }
       cell *cdr() const {
-        if(!ispair()) return NIL();
+        if(!ispair()) return NIL;
         return object_.cons_.cdr_;
       }
       void cdr(cell *cell__){
@@ -142,25 +145,6 @@ namespace PetitScheme {
       }
       cell *next_freecell() const {
         return object_.cell_;
-      }
-
-      static cell* NIL(){
-        static cell *NIL_ = new cell();
-        return NIL_;
-      }
-      static cell* T(){
-        static cell *T_ = new cell();
-        return T_;
-      }
-      static cell* F(){
-        static cell *F_ = new cell();
-        return F_;
-      }
-
-      static const char *empty_string()
-      {
-        static const char *empty_ = "";
-        return empty_;
       }
 
       void clear(){
@@ -208,7 +192,7 @@ namespace PetitScheme {
         }
 
         void connect_freecell(){
-          free_cell_ = cell::NIL();
+          free_cell_ = cell::NIL;
           for(int i = size_ - 1; i >= 0; i--){
             if(cells_[i].isunused()){
               cells_[i].connect(free_cell_);
@@ -242,8 +226,8 @@ namespace PetitScheme {
 #ifdef DEBUG
           bemarked->dump();
 #endif /* DEBUG */
-          if(bemarked == cell::NIL() || bemarked == cell::F()
-             || bemarked == cell::T()) return;
+          if(bemarked == cell::NIL || bemarked == cell::F
+             || bemarked == cell::T) return;
           if(bemarked->ismarked()) return;
           bemarked->setmark();
           if(bemarked->ispair()){
@@ -257,7 +241,7 @@ namespace PetitScheme {
           cell *heap_begin = cells_;
           cell *heap_end = heap_begin + size_;
 #ifdef DEBUG
-          printf("NIL: %p, T: %p, F: %p\n", cell::NIL(),cell::T(),cell::F());
+          printf("NIL: %p, T: %p, F: %p\n", cell::NIL,cell::T,cell::F);
           printf("heap_begin: %p, heap_end: %p\n", heap_begin, heap_end);
 #endif /* DEBUG */
           for(int i = 0; i < n; i++){
@@ -289,7 +273,7 @@ namespace PetitScheme {
           cell *heap_end = heap_begin + size_;
 #ifdef DEBUG
           dump();
-          printf("NIL: %p, T: %p, F: %p\n", cell::NIL(),cell::T(),cell::F());
+          printf("NIL: %p, T: %p, F: %p\n", cell::NIL,cell::T,cell::F);
           printf("heap_begin: %p, heap_end: %p\n", heap_begin, heap_end);
 #endif /* DEBUG */
           while(stack_ptr < stack_end){
@@ -311,7 +295,7 @@ namespace PetitScheme {
         }
 
         cell *get_cell(){
-          if(free_cell_ == cell::NIL()) return free_cell_;
+          if(free_cell_ == cell::NIL) return free_cell_;
           cell *ret = free_cell_;
           free_cell_ = free_cell_->next_freecell();
           return ret;
@@ -336,6 +320,9 @@ namespace PetitScheme {
         for(int i = 0; i < block_siz_; i++)
           delete blocks_[i];
         delete[] blocks_;
+        delete cell::NIL;
+        delete cell::T;
+        delete cell::F;
       }
 
       void append_block(){
@@ -351,9 +338,9 @@ namespace PetitScheme {
       cell *search_cell(){
         for(int i = 0; i < block_siz_; i++){
           cell *ret = blocks_[i]->get_cell();
-          if(ret != cell::NIL()) return ret;
+          if(ret != cell::NIL) return ret;
         }
-        return cell::NIL();
+        return cell::NIL;
       }
 
     public:
@@ -371,12 +358,12 @@ namespace PetitScheme {
 
       cell *get_cell(){
         cell *ret;
-        if((ret = search_cell()) != cell::NIL()) return ret;
+        if((ret = search_cell()) != cell::NIL) return ret;
         gc();
-        if((ret = search_cell()) != cell::NIL()) return ret;
+        if((ret = search_cell()) != cell::NIL) return ret;
         append_block();
         ret = blocks_[block_siz_-1]->get_cell();
-        if(ret == cell::NIL()) throw std::logic_error("Can't allocate memory");
+        if(ret == cell::NIL) throw std::logic_error("Can't allocate memory");
         return ret;
       }
 
@@ -409,6 +396,12 @@ namespace PetitScheme {
       }
     };
 
+    cell cell::___NIL;
+    cell cell::___T;
+    cell cell::___F;
+    cell* cell::NIL = &___NIL;
+    cell* cell::T = &___T;
+    cell* cell::F = &___F;
     void set_car(cell *c, cell *d){ c->car(d); }
     void set_cdr(cell *c, cell *d){ c->cdr(d); }
     cell* car(cell *c){ return c->car(); }
@@ -445,7 +438,7 @@ namespace PetitScheme {
     cell* cons(cell *a, cell *b)
     { return cell_manager::get_instance().get_cell()->init(a,b); }
     cell* list(cell *a)
-    { return cons(a,cell::NIL()); }
+    { return cons(a,cell::NIL); }
     cell* list(cell *a, cell *b)
     { return cons(a,list(b)); }
     cell* list(cell *a, cell *b, cell *c)
@@ -481,7 +474,7 @@ namespace PetitScheme {
     }
     cell* nreverse(cell *c, bool isdot = false){
       cell *cur = c;
-      if(c == cell::NIL()) return c;
+      if(c == cell::NIL) return c;
 
       cell *cdr = cur->cdr();
       if(isdot){
@@ -490,9 +483,9 @@ namespace PetitScheme {
         cur = cdr;
         cdr = cddr;
       }else{
-        cur->cdr(cell::NIL());
+        cur->cdr(cell::NIL);
       }
-      while(cdr != cell::NIL()){
+      while(cdr != cell::NIL){
         cell *cddr = cdr->cdr();
         cdr->cdr(cur);
         cur = cdr;
@@ -649,7 +642,7 @@ namespace PetitScheme
 
       //いつか再帰をなくす予定
       Base::cell *parse_list(){
-        obj c, code = Base::cell::NIL();
+        obj c, code = Base::cell::NIL;
         while((c = parse_atom()) != rparen){
           if(c == rdot){ //DOT LIST
             c = parse_atom();
@@ -788,7 +781,7 @@ namespace PetitScheme {
             _printsexp(car(code));
           }
           code = cdr(code);
-          if(code != cell::NIL())
+          if(code != cell::NIL)
             cout << ' ';
           else
             break;
@@ -799,7 +792,7 @@ namespace PetitScheme {
           cout << code->ivalue();
         else if(code->isstring())
           cout << code->str();
-        else if(code == cell::NIL())
+        else if(code == cell::NIL)
           cout << "()";
       }
     }
@@ -812,7 +805,7 @@ namespace PetitScheme {
     obj OP_ADD(obj arg, obj env){
       int i = 0;
       obj c = arg;
-      while(c != cell::NIL()){
+      while(c != cell::NIL){
         i += car(c)->ivalue();
         c = cdr(c);
       }
@@ -821,15 +814,15 @@ namespace PetitScheme {
     }
 
     obj OP_SUB(obj arg, obj env){
-      if(arg == cell::NIL())
+      if(arg == cell::NIL)
         return mk_number(0);
 
       int i = car(arg)->ivalue();
-      if(cdr(arg) == cell::NIL())
+      if(cdr(arg) == cell::NIL)
         return mk_number(-i);
 
       obj c = cdr(arg);
-      while(c != cell::NIL()){
+      while(c != cell::NIL){
         i -= car(c)->ivalue();
         c = cdr(c);
       }
@@ -840,7 +833,7 @@ namespace PetitScheme {
     obj OP_MULTIPLY(obj arg, obj env){
       int i = 1;
       obj c = arg;
-      while(c != cell::NIL()){
+      while(c != cell::NIL){
         i *= car(c)->ivalue();
         c = cdr(c);
       }
@@ -849,15 +842,15 @@ namespace PetitScheme {
     }
 
     obj OP_DIVIDE(obj arg, obj env){
-      if(arg == cell::NIL())
+      if(arg == cell::NIL)
         return mk_number(1);
 
       int i = car(arg)->ivalue();
-      if(cdr(arg) == cell::NIL())
+      if(cdr(arg) == cell::NIL)
         return mk_number(1/i);
 
       obj c = cdr(arg);
-      while(c != cell::NIL()){
+      while(c != cell::NIL){
         i /= car(c)->ivalue();
         c = cdr(c);
       }
@@ -878,21 +871,21 @@ namespace PetitScheme {
     }
 
     obj OP_BEGIN(obj arg, obj env){
-      while(cdr(arg) != cell::NIL())
+      while(cdr(arg) != cell::NIL)
         arg = cdr(arg);
       return car(arg);
     }
 
     obj OP_DISPLAY(obj arg, obj env){
       printsexp(car(arg));
-      return cell::NIL();
+      return cell::NIL;
     }
 
     obj OP_EQUAL(obj arg, obj env){
       if(car(arg)->ivalue() == cadr(arg)->ivalue()){
-        return cell::T();
+        return cell::T;
       }else{
-        return cell::F();
+        return cell::F;
       }
     }
 
@@ -946,10 +939,10 @@ namespace PetitScheme {
 
       obj _lookup(obj var, obj env){
         obj e = env;
-        while(e != cell::NIL()){
+        while(e != cell::NIL){
           obj vars = caar(e);
           obj vals = cdar(e);
-          while(vars != cell::NIL()){
+          while(vars != cell::NIL){
             if(strcmp(car(vars)->str(), var->str()) == 0)
               return vals;
             vars = cdr(vars);
@@ -957,12 +950,12 @@ namespace PetitScheme {
           }
           e = cdr(e);
         }
-        return cell::NIL();
+        return cell::NIL;
       }
 
       obj lookup(obj var, obj env, obj *genv){
         obj found = _lookup(var, env);
-        if(found != cell::NIL())
+        if(found != cell::NIL)
           return found;
         return _lookup(var, *genv);
       }
@@ -977,18 +970,18 @@ namespace PetitScheme {
 
       obj assoc_lookup(obj lst, obj key_obj){
         const char *key = key_obj->str();
-        while(lst != cell::NIL()){
+        while(lst != cell::NIL){
           if(strcmp(caar(lst)->str(),key) == 0){
             return cdar(lst);
           }
           lst = cdr(lst);
         }
-        return cell::NIL();
+        return cell::NIL;
       }
 
       bool reserved_lookup(obj reserved, obj key_obj){
         const char *key = key_obj->str();
-        while(reserved != cell::NIL()){
+        while(reserved != cell::NIL){
           if(strcmp(car(reserved)->str(),key) == 0)
             return true;
           reserved = cdr(reserved);
@@ -997,55 +990,121 @@ namespace PetitScheme {
       }
 
       obj pattern_match(obj templ, obj real, obj reserved){
-        //cout << "templ: "; printsexp(templ);
-        //cout << "real: "; printsexp(real);
-        if(templ == cell::NIL() && real == cell::NIL()){
-          return cell::NIL();
-        }else if(templ != cell::NIL() && real != cell::NIL()){
-          if(templ->ispair() && real->ispair()){
-            if(strcmp(car(templ)->str(), "...") == 0)
-              return list(cons(car(templ),real));
-
-            obj bind_car = pattern_match(car(templ),car(real),reserved);
-            if(bind_car == NULL) return NULL;
-            obj bind_cdr = pattern_match(cdr(templ),cdr(real),reserved);
-            if(bind_cdr == NULL) return NULL;
-            return append(bind_car,bind_cdr);
-          }else if(!templ->ispair() && !real->ispair()){
-            if(strcmp(templ->str(), "_") == 0 || reserved_lookup(reserved,real))
-              return cell::NIL();
-            return list(cons(templ,real));
+        obj res = cell::NIL;
+        while(templ != cell::NIL){
+#ifdef DEBUG
+          cout << "templ: "; printsexp(templ);
+          cout << "real: "; printsexp(real);
+#endif
+          if(real == cell::NIL){
+            return NULL;
+          }else if(strcmp(cadr(templ)->str(), "...") == 0){
+            obj templ_orig = templ, real_orig = real;
+            while(real != cell::NIL){
+              obj ret = NULL;
+              if(car(templ)->ispair()){
+                ret = pattern_match(car(templ),car(real),reserved);
+              }else{
+                ret = pattern_match(list(car(templ)),list(car(real)),reserved);
+              }
+              if(ret == NULL) return NULL;
+              real = cdr(real);
+            }
+            while(cdr(templ) != cell::NIL){
+              templ = cdr(templ);
+              if(strcmp(car(templ)->str(), "...") != 0)
+                return NULL;
+            }
+            return cons(cons(templ_orig,real_orig),res);
+          }else if(car(templ)->ispair()){
+            if(!car(real)->ispair()){
+              return NULL;
+            }
+            obj ret = pattern_match(car(templ), car(real), reserved);
+            if(ret == NULL) return NULL;
+            res = append(ret,res);
           }else{
-            return list(cons(templ,real));
+            if(strcmp(car(templ)->str(), "_") == 0) goto skip;
+            if(reserved_lookup(reserved,car(templ))){
+              if(strcmp(car(templ)->str(),car(real)->str()) == 0){
+                goto skip;
+              }else{
+                return NULL;
+              }
+            }
+            if(car(templ) != cell::NIL && car(real) != cell::NIL){
+              res = cons(cons(car(templ),car(real)),res);
+            }else{
+              return NULL;
+            }
           }
-        }else{
-          if(strcmp(car(templ)->str(),"...") == 0)
-            return list(cons(car(templ), real));
-          return NULL;
+        skip:
+          if(!cdr(templ)->ispair() && cdr(templ) != cell::NIL){ //for dot list
+            obj ret = pattern_match(cdr(templ),cdr(real),reserved);
+            if(ret == NULL) return NULL;
+            res = append(ret,res);
+            templ = cdr(templ);
+            real = cdr(templ);
+          }
+          templ = cdr(templ);
+          real = cdr(real);
         }
+        if(real != cell::NIL) return NULL;
+        return res;
       }
 
       obj bind_lookup(obj bind, obj key_obj){
-        const char *key = key_obj->str();
-        while(bind != cell::NIL()){
-          if(strcmp(caar(bind)->str(),key) == 0){
-            if(strcmp(key,"...") == 0){
-              set_car(car(bind),mk_symbol("#<pattern...used>"));
+        if(key_obj->ispair()){
+          obj ret = NULL, templ = cell::NIL;
+          obj key;
+          while(bind != cell::NIL){
+            if(!caar(bind)->ispair()) goto skip;
+            templ = caar(bind);
+            key = key_obj;
+#ifdef DEBUG
+            cout << "templ_bindq: "; printsexp(templ);
+            cout << "key: "; printsexp(key);
+#endif
+            ret = pattern_match(list(car(templ)), list(car(key)), cell::NIL);
+            if(ret == NULL) goto skip;
+            while(cdr(templ) != cell::NIL){
+              templ = cdr(templ); key = cdr(key);
+#ifdef DEBUG
+              cout << "templ_bin: "; printsexp(templ);
+              cout << "key_bin: "; printsexp(key);
+#endif
+              // 同数かチェック
+              if(key == cell::NIL) goto skip;
+              if(strcmp(car(key)->str(),"...")  != 0) goto skip;
             }
             return cdar(bind);
+          skip:
+            bind = cdr(bind);
           }
+          return NULL;
+        }
+        const char *key = key_obj->str();
+        while(bind != cell::NIL){
+          if(caar(bind)->ispair())
+            goto skip2;
+          if(strcmp(caar(bind)->str(),key) == 0){
+            return cdar(bind);
+          }
+        skip2:
           bind = cdr(bind);
         }
         return NULL;
       }
 
       obj macro_expand(obj bind, obj templ){
-        //printsexp(templ);
+#ifdef DEBUG
+        cout << "templ: "; printsexp(templ);
+#endif
         if(templ->ispair()){
           if(strcmp(cadr(templ)->str(),"...") == 0){
-            obj val = bind_lookup(bind,cadr(templ));
+            obj val = bind_lookup(bind,templ);
             if(val != NULL){
-              return cons(macro_expand(bind,car(templ)), val);
+              return val;
             }
           }
           return cons(macro_expand(bind,car(templ)),
@@ -1053,9 +1112,10 @@ namespace PetitScheme {
         }else{
           obj val = bind_lookup(bind,templ);
           if(val != NULL){
-            //cout << "binded: key: " << templ->str();
-            //cout << "val: "; printsexp(val);
-
+#ifdef DEBUG
+            cout << "binded: key: " << templ->str();
+            cout << "val: "; printsexp(val);
+#endif
             return val;
           }else{
             return templ;
@@ -1076,7 +1136,7 @@ namespace PetitScheme {
             obj body = list(mk_opcode(OP_RETURN));
             obj body_exps = cddr(code);
             body_exps = nreverse(body_exps);
-            while(body_exps != cell::NIL()){
+            while(body_exps != cell::NIL){
               body = compile(car(body_exps),body, syntax);
               body_exps = cdr(body_exps);
             }
@@ -1117,21 +1177,26 @@ namespace PetitScheme {
             *syntax = cons(cons(name,transformer),*syntax);
             return next;
           }else if((matched_syntax = assoc_lookup(*syntax, car(code)))
-                   != cell::NIL()){
+                   != cell::NIL){
             //printsexp(matched_syntax);
             if(strcmp(car(matched_syntax)->str(),"syntax-rules") == 0){
               obj reserved = cadr(matched_syntax);
               obj patterns = cddr(matched_syntax);
               obj bind = NULL;
-              while(patterns != cell::NIL()){
+              while(patterns != cell::NIL){
                 bind = pattern_match(caar(patterns),code,
                                      cons(car(code),reserved));
                 if(bind != NULL) break;
                 patterns = cdr(patterns);
               }
               if(bind == NULL) throw logic_error("not match macro");
+#ifdef DEBUG
+              cout << "binded: "; printsexp(bind);
+#endif
               obj expanded = macro_expand(bind, cadar(patterns));
-              //cout << "expanded: "; printsexp(expanded);
+#ifdef DEBUG
+              cout << "expanded: "; printsexp(expanded);
+#endif
               return compile(expanded, next, syntax);
             }else{
               throw logic_error("not implemented other macro syntax rule");
@@ -1140,7 +1205,7 @@ namespace PetitScheme {
             obj c = compile(car(code), list(mk_opcode(OP_APPLY)),syntax);
             obj args = cdr(code);
             args = nreverse(args);
-            while(args != cell::NIL()) {
+            while(args != cell::NIL) {
               c = compile(car(args), list(mk_opcode(OP_ARGUMENT), c),syntax);
               args = cdr(args);
             }
@@ -1155,10 +1220,10 @@ namespace PetitScheme {
       }
 
       obj run(obj code, obj *genv){
-        obj acc = cell::NIL();
-        obj env = cell::NIL();
-        obj arg = cell::NIL();
-        obj stack = cell::NIL();
+        obj acc = cell::NIL;
+        obj env = cell::NIL;
+        obj arg = cell::NIL;
+        obj stack = cell::NIL;
       recursion:
 #ifdef DEBUG
         cout << "\n";
@@ -1193,7 +1258,7 @@ namespace PetitScheme {
         case OP_TEST:
           // then else
           //eval(a (if a then else) e r s)
-          if(acc == cell::T())
+          if(acc == cell::T)
             code = cadr(code);
           else
             code = caddr(code);
@@ -1206,7 +1271,7 @@ namespace PetitScheme {
           code = caddr(code);
           goto recursion;
         case OP_DEFINE:
-          if(env == cell::NIL())
+          if(env == cell::NIL)
             define(cadr(code), acc, genv);
           else
             extend(env, cadr(code), acc);
@@ -1216,7 +1281,7 @@ namespace PetitScheme {
         case OP_CONTI:
           acc = closure(list(mk_opcode(OP_NUATE), stack,
                              mk_symbol("#<continuation arg>")),
-                        cell::NIL(),
+                        cell::NIL,
                         list(mk_symbol("#<continuation arg>")));
           code = cadr(code);
           goto recursion;
@@ -1235,7 +1300,7 @@ namespace PetitScheme {
           // ret x
           // eval(a x e '() (call-frame ret e r s))
           stack = call_frame(cadr(code), env, arg, stack);
-          arg = cell::NIL();
+          arg = cell::NIL;
           code = caddr(code);
           goto recursion;
         case OP_APPLY:
@@ -1253,10 +1318,10 @@ namespace PetitScheme {
             stack = cadddr(stack);
           }else{
             code = car(acc);
-            if(code == cell::NIL())
+            if(code == cell::NIL)
               throw std::logic_error("It's not defined function!");
             env = extend(cadr(acc), caddr(acc), nreverse(arg));
-            arg = cell::NIL();
+            arg = cell::NIL;
           }
           goto recursion;
         case OP_RETURN:
@@ -1268,7 +1333,7 @@ namespace PetitScheme {
         default:
           throw std::logic_error("Evaluation Error");
         }
-        return cell::NIL();
+        return cell::NIL;
       }
 
 
@@ -1279,9 +1344,9 @@ namespace PetitScheme {
         cell_manager::get_instance().set_stack_top(&stack_top);
 
         SexpIO io;
-        obj genv = cell::NIL();
+        obj genv = cell::NIL;
         genv_init(&genv);
-        obj syntax = cell::NIL();
+        obj syntax = cell::NIL;
         while(1){
           try{
 #ifdef DEBUG
@@ -1298,9 +1363,9 @@ namespace PetitScheme {
               " (f)))))";
             obj scode = Parser(str.c_str(), str.size()).parse();
             obj sbcode = compile(scode, list(mk_opcode(OP_HALT)), &syntax);
-            obj sret = run(sbcode, &genv);
+            run(sbcode, &genv);
             printsexp(syntax);
-            str = "(if (my-and (= 1 2) (= 2 2) (= 3 5)) (display 2) (display 3))";
+            str = "(if (my-and (= 1 1) (= 2 2) (= 3 3)) (display 2) (display 3))";
 #else
             string str = io.read();
 #endif /* DEBUG */
