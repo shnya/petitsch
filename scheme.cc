@@ -523,9 +523,7 @@ namespace PetitScheme {
       }
       return false;
     }
-
   }
-
 
   typedef Base::cell* obj;
 }
