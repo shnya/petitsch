@@ -114,6 +114,7 @@ namespace PetitScheme {
       bool isclosure() const { return flag_ & T_CLOSURE; }
       bool iscontinuation() const { return flag_ & T_CONTINUATION; }
       bool ismarked() const {return flag_ & T_MARK; }
+      bool issametype(cell *a) const { return flag_ == a->flag_; }
       void setmark(){ flag_ |= T_MARK; }
       void clrmark(){ flag_ &= (T_MARK - 1); }
 
@@ -493,7 +494,16 @@ namespace PetitScheme {
       }
       return cur;
     }
+    cell* append(cell *left, cell *right){
+      if(left->ispair()){
+        return cons(car(left),append(cdr(left),right));
+      }else{
+        return right;
+      }
+    }
+
   }
+
 
   typedef Base::cell* obj;
 }
@@ -971,14 +981,6 @@ namespace PetitScheme {
         if(found != cell::NIL)
           return found;
         return _lookup(var, *genv);
-      }
-
-      obj append(obj left, obj right){
-        if(left->ispair()){
-          return cons(car(left),append(cdr(left),right));
-        }else{
-          return right;
-        }
       }
 
       obj assoc_lookup(obj lst, obj key_obj){
