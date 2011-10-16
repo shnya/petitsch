@@ -30,7 +30,7 @@ namespace PetitScheme {
           cell* cdr_;
         } cons_;
         struct {
-          const char *str_;
+          char *str_;
           size_t len_;
         } str_;
       } object_;
@@ -59,7 +59,7 @@ namespace PetitScheme {
 
       cell() : flag_(T_UNKNOWN) {}
       ~cell() {
-        if(isstring() || issymbol() || issyntax()) delete[] object_.str_.str_;
+        if(isstring() || issymbol() || issyntax()) free(object_.str_.str_);
       }
       cell* init(CELL_TYPE type, int arg)
       { flag_ = type; object_.ivalue_ = arg; return this; }
