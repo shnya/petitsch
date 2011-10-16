@@ -149,7 +149,7 @@ namespace PetitScheme {
       }
 
       void clear(){
-        if(isstring() || issymbol() || issyntax()) delete[] object_.str_.str_;
+        if(isstring() || issymbol() || issyntax()) free(object_.str_.str_);
         flag_ = T_UNKNOWN;
       }
 
